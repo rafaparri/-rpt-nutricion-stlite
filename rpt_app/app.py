@@ -986,6 +986,7 @@ def _persistir_estado_actual():
         "entreno_nombre_archivo": st.session_state.entreno_nombre_archivo,
         "menu_confirmado_id": st.session_state.get('menu_confirmado_id'),
         "comidas_confirmadas": st.session_state.get('comidas_confirmadas', {}),
+        "competicion": st.session_state.get('competicion'),
     })
 
 
@@ -1008,6 +1009,7 @@ def _cargar_o_reiniciar_menu_actual():
         st.session_state.estado_menu_actual = estado_guardado.get('estado', 'borrador')
         st.session_state.menu_confirmado_id = estado_guardado.get('menu_confirmado_id')
         st.session_state.comidas_confirmadas = estado_guardado.get('comidas_confirmadas', {})
+        st.session_state.competicion = estado_guardado.get('competicion')
         st.session_state.menu_generado_para = _firma_perfil(st.session_state.perfil)
     else:
         st.session_state.datos_menu = {}
@@ -1021,6 +1023,7 @@ def _cargar_o_reiniciar_menu_actual():
         st.session_state.estado_menu_actual = 'borrador'
         st.session_state.menu_confirmado_id = None
         st.session_state.comidas_confirmadas = {}
+        st.session_state.competicion = None
         st.session_state.menu_generado_para = None
 
     st.session_state.menu_cargado_de = None
@@ -1039,6 +1042,7 @@ def _dibujar_detalle_dia(dia, datos):
     """Panel de edición completo de un día: comidas fijas, postres de
     almuerzo/cena, y almuerzo/cena. Es el mismo contenido para cualquier
     día, se llama con el que esté seleccionado en el calendario."""
+    _mostrar_plan_competicion(dia)
     comidas_confirmadas = st.session_state.setdefault('comidas_confirmadas', {})
 
     def _badge_confirmado(clave_comida):
@@ -1243,6 +1247,51 @@ def _mostrar_menu_confirmado_bloqueado():
             st.rerun()
 
 
+def _hm(minutos):
+    return f"{int(minutos) // 60:02d}:{int(minutos) % 60:02d}"
+
+
+@st.dialog("🏆 Competición")
+def dialog_competicion(dia_inicial):
+    """Pregunta día, hora de pesaje y hora de inicio, y los guarda para
+    ajustar las comidas del día de la competición."""
+    actual = st.session_state.get("competicion") or {}
+    dia_def = actual.get("dia", dia_inicial)
+    dia = st.selectbox("Día de la competición", DIAS_SEMANA, index=DIAS_SEMANA.index(dia_def) if dia_def in DIAS_SEMANA else 5)
+    pes_def = actual.get("pesaje_min", 8 * 60)
+    ini_def = actual.get("inicio_min", 10 * 60)
+    t_pes = st.time_input("Hora del pesaje", value=datetime.strptime(_hm(pes_def), "%H:%M").time(), step=300)
+    t_ini = st.time_input("Hora de inicio (primer intento)", value=datetime.strptime(_hm(ini_def), "%H:%M").time(), step=300)
+    pes_min = t_pes.hour * 60 + t_pes.minute
+    ini_min = t_ini.hour * 60 + t_ini.minute
+    if ini_min <= pes_min:
+        st.warning("La hora de pesaje debe ser anterior a la hora de inicio.")
+    c1, c2 = st.columns(2)
+    if c1.button("💾 Guardar", type="primary", use_container_width=True, disabled=ini_min <= pes_min):
+        st.session_state["competicion"] = {"dia": dia, "pesaje_min": pes_min, "inicio_min": ini_min}
+        _persistir_estado_actual()
+        st.rerun()
+    if actual and c2.button("🗑️ Quitar competición", use_container_width=True):
+        st.session_state["competicion"] = None
+        _persistir_estado_actual()
+        st.rerun()
+
+
+def _mostrar_plan_competicion(dia):
+    """Muestra, dentro del día de competición, el plan de comidas por horas."""
+    comp = st.session_state.get("competicion")
+    if not comp or comp.get("dia") != dia:
+        return
+    aviso, pasos = plan_dia_competicion(st.session_state.perfil.get("peso"), comp["pesaje_min"], comp["inicio_min"])
+    st.markdown(f"### 🏆 Día de competición · pesaje {_hm(comp['pesaje_min'])} · inicio {_hm(comp['inicio_min'])}")
+    if aviso:
+        st.warning(aviso)
+    for p in pasos:
+        st.markdown(f"**{p['hora']} · {p['titulo']}**  \n{p['detalle']}")
+    st.caption("Pautas generales de nutrición deportiva calculadas con tu peso. Prueba siempre en entrenamiento lo que vayas a tomar el día de competir. Estas pautas sustituyen a las comidas normales de este día.")
+    st.divider()
+
+
 async def _mostrar_planificador_borrador():
     """Pantalla completa de generación y edición del menú en curso (borrador). Se muestra solo cuando el atleta actual NO tiene un menú confirmado activo."""
     st.header("Entrenamiento y Planificación")
@@ -1310,26 +1359,23 @@ async def _mostrar_planificador_borrador():
                     st.session_state.entreno_nombre_archivo = "Marcado a mano"
 
         # ---------- Competición (hora de pesaje y de inicio) ----------
-        st.session_state.setdefault("comp_dia", "Sábado")
-        _hay_comp = st.checkbox("🏆 Hay competición esta semana", key="comp_activa")
-        if _hay_comp:
-            _cc1, _cc2, _cc3 = st.columns(3)
-            _dia_comp = _cc1.selectbox("Día de la competición", DIAS_SEMANA, key="comp_dia")
-            _t_pes = _cc2.time_input("Hora del pesaje", value=datetime.strptime("08:00", "%H:%M").time(), key="comp_hora_pesaje", step=300)
-            _t_ini = _cc3.time_input("Hora de inicio (primer intento)", value=datetime.strptime("10:00", "%H:%M").time(), key="comp_hora_inicio", step=300)
+        _dia_pedido = st.session_state.pop("_pedir_comp_dia", None)
+        if _dia_pedido:
+            dialog_competicion(_dia_pedido)
+        _comp = st.session_state.get("competicion")
+        if _comp:
             if st.session_state.get('intensidades_semana'):
-                st.session_state.intensidades_semana[_dia_comp] = "Alta"
-                st.session_state.detalle_intensidades[_dia_comp] = "🏆 Día de competición (se fija como Alta)."
-            _min_pes = _t_pes.hour * 60 + _t_pes.minute
-            _min_ini = _t_ini.hour * 60 + _t_ini.minute
-            _aviso_comp, _pasos_comp = plan_dia_competicion(st.session_state.perfil.get("peso"), _min_pes, _min_ini)
-            if _aviso_comp:
-                st.warning(_aviso_comp)
-            if _pasos_comp:
-                st.markdown(f"### 🏆 Plan del {_dia_comp}: comidas según tus horas")
-                for _p in _pasos_comp:
-                    st.markdown(f"**{_p['hora']} · {_p['titulo']}**  \n{_p['detalle']}")
-                st.caption("Pautas generales de nutrición deportiva calculadas con tu peso. Prueba siempre en entrenamiento lo que vayas a tomar el día de competir.")
+                st.session_state.intensidades_semana[_comp["dia"]] = "Alta"
+                st.session_state.detalle_intensidades[_comp["dia"]] = "🏆 Día de competición (se fija como Alta)."
+            st.markdown(
+                f"🏆 **Competición el {_comp['dia']}** · pesaje **{_hm(_comp['pesaje_min'])}** · "
+                f"inicio **{_hm(_comp['inicio_min'])}**  \n_El plan de comidas de ese día está en el menú del {_comp['dia']}._"
+            )
+            if st.button("✏️ Cambiar horas o quitar la competición", key="btn_editar_comp"):
+                dialog_competicion(_comp["dia"])
+        else:
+            if st.button("🏆 Añadir una competición", key="btn_anadir_comp"):
+                dialog_competicion("Sábado")
 
         if st.session_state.get('intensidades_semana'):
             st.caption(f"📄 Usando: **{st.session_state.get('entreno_nombre_archivo', '')}**" if st.session_state.get('entreno_nombre_archivo') != "Marcado a mano" else "✋ Semana marcada a mano (valores iniciales orientativos: ajústalos a tu semana real).")
@@ -1338,7 +1384,7 @@ async def _mostrar_planificador_borrador():
             for col, dia in zip(cols_dias, DIAS_SEMANA):
                 intensidad_dia = st.session_state.intensidades_semana.get(dia, "Media")
                 emoji = {"Alta": "🔴", "Media": "🟡", "Descanso": "🟢"}.get(intensidad_dia, "🟡")
-                _es_comp = bool(st.session_state.get("comp_activa")) and st.session_state.get("comp_dia") == dia
+                _es_comp = bool(st.session_state.get("competicion")) and st.session_state["competicion"]["dia"] == dia
                 if _es_comp:
                     emoji = "🏆"
                 col.markdown(f"**{dia[:3]}**")
@@ -1356,8 +1402,7 @@ async def _mostrar_planificador_borrador():
                                 st.session_state.detalle_intensidades[dia] = "Corregido a mano por ti."
                                 st.rerun()
                     def _marcar_competicion(_d=dia):
-                        st.session_state["comp_activa"] = True
-                        st.session_state["comp_dia"] = _d
+                        st.session_state["_pedir_comp_dia"] = _d
                     st.button(
                         "🏆 Competición este día", key=f"corr_comp_{dia}", use_container_width=True,
                         type="primary" if _es_comp else "secondary", on_click=_marcar_competicion,
