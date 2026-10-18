@@ -1873,6 +1873,85 @@ if 'mostrar_resumen_cambios' not in st.session_state: st.session_state.mostrar_r
 
 
 # ------------------------------------------------------------------
+# DATOS QUE LLEGAN DESDE WORKOUT 2.0 (enlace "Abrir en Nutrición")
+# ------------------------------------------------------------------
+import puente as _puente
+
+
+def _aplicar_datos_workout(datos):
+    """Vuelca en Nutrición lo recibido de WorkOut: perfil, intensidades y
+    competición. Se ejecuta como callback del botón, antes de redibujar."""
+    nombre = datos["nombre"]
+    atletas = ds.cargar_atletas()
+    perfil = _completar_perfil(atletas.get(nombre, {"nombre": nombre}))
+    perfil["nombre"] = nombre
+    if datos["peso"]:
+        perfil["peso"] = datos["peso"]
+    if datos["categoria"]:
+        perfil["categoria"] = datos["categoria"]
+    if datos["competicion"]:
+        perfil["competicion"] = datos["competicion"]
+    if datos["fecha_competicion"]:
+        perfil["fecha_competicion"] = datos["fecha_competicion"]
+    st.session_state.perfil = perfil
+    try:
+        ds.guardar_atleta(perfil)
+    except Exception:
+        pass
+    st.session_state.atleta_seleccionado = nombre
+    st.session_state["selector_atleta"] = nombre
+    _cargar_o_reiniciar_menu_actual()
+    if datos["intensidades"]:
+        st.session_state.intensidades_semana = dict(datos["intensidades"])
+    comp = datos["comp"]
+    if comp:
+        st.session_state["competicion"] = {"dia": comp["dia"], "pesaje_min": comp["pesaje_min"],
+                                           "inicio_min": comp["inicio_min"]}
+        st.session_state.intensidades_semana[comp["dia"]] = "Alta"
+    _persistir_estado_actual()
+    st.session_state["_wo_aplicado"] = nombre
+    try:
+        del st.query_params["wo"]
+    except Exception:
+        pass
+
+
+def _ignorar_datos_workout():
+    try:
+        del st.query_params["wo"]
+    except Exception:
+        pass
+
+
+def _banner_workout():
+    if st.session_state.get("_wo_aplicado"):
+        st.success(f"✅ Datos de WorkOut aplicados para {st.session_state.pop('_wo_aplicado')}. "
+                   "Si ya tenías un menú de esta semana, vuelve a generarlo para que use la intensidad nueva.")
+    crudo = st.query_params.get("wo")
+    if not crudo:
+        return
+    datos = _puente.decodificar(crudo)
+    if not datos:
+        st.warning("El enlace desde WorkOut no es válido o está incompleto. No se ha cambiado nada.")
+        st.button("Cerrar aviso", on_click=_ignorar_datos_workout, key="wo_cerrar")
+        return
+    with st.container(border=True):
+        st.markdown("### 🔗 Datos recibidos de WorkOut 2.0")
+        st.markdown(_puente.resumen(datos))
+        if datos["intensidades"]:
+            st.caption("Intensidad: " + " · ".join(f"{d[:3]} {i}" for d, i in datos["intensidades"].items()))
+        if datos["comp"] and not datos["comp"]["horas_indicadas"]:
+            st.caption("La competición llegó sin horas: puedes ajustarlas después en el planificador.")
+        c1, c2 = st.columns(2)
+        c1.button("Aplicar estos datos", type="primary", use_container_width=True,
+                  on_click=_aplicar_datos_workout, args=(datos,), key="wo_aplicar")
+        c2.button("Ignorar", use_container_width=True, on_click=_ignorar_datos_workout, key="wo_ignorar")
+
+
+_banner_workout()
+
+
+# ------------------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ------------------------------------------------------------------
 PORCION_MIN_G = 100
@@ -2591,9 +2670,10 @@ with st.sidebar:
     opciones_atleta = ["➕ Nuevo atleta..."] + nombres_atletas
 
     seleccion_previa = st.session_state.get('atleta_seleccionado', opciones_atleta[0])
-    idx_default = opciones_atleta.index(seleccion_previa) if seleccion_previa in opciones_atleta else 0
+    if st.session_state.get("selector_atleta") not in opciones_atleta:
+        st.session_state["selector_atleta"] = seleccion_previa if seleccion_previa in opciones_atleta else opciones_atleta[0]
 
-    seleccion = st.selectbox("Atleta guardado", opciones_atleta, index=idx_default, key="selector_atleta")
+    seleccion = st.selectbox("Atleta guardado", opciones_atleta, key="selector_atleta")
 
     if seleccion != st.session_state.get('atleta_seleccionado'):
         st.session_state.atleta_seleccionado = seleccion
