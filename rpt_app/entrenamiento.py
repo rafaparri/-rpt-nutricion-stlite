@@ -234,6 +234,13 @@ def leer_entrenamiento_imagen(imagen_file):
             "conf": int(datos["conf"][i]) if str(datos["conf"][i]).lstrip("-").isdigit() else 0,
         })
 
+    return interpretar_palabras_ocr(palabras, ancho_imagen, alto_imagen)
+
+
+def interpretar_palabras_ocr(palabras, ancho_imagen, alto_imagen):
+    """Convierte las palabras reconocidas por cualquier OCR (lista de dicts
+    con texto, x, y, conf) en intensidades por día.
+    Devuelve (intensidades, detalle, avisos, texto_bruto)."""
     texto_bruto = "\n".join(p["texto"] for p in palabras)
 
     # Columna izquierda (~5% del ancho): ahí van las letras de cada día en
@@ -329,6 +336,8 @@ def leer_entrenamiento_imagen(imagen_file):
         )
 
     return intensidades, detalle, avisos, texto_bruto
+
+
 
 
 def _leer_formato_hoja_gimnasio(df_crudo, fila_cab, idx_dia, idx_imr):

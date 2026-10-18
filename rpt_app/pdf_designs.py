@@ -17,6 +17,9 @@ import urllib.request as _ur
 for _n in ("HTTPSHandler", "HTTPHandler", "ProxyHandler"):
     if not hasattr(_ur, _n):
         setattr(_ur, _n, type(_n, (), {"__init__": lambda self, *a, **k: None}))
+import http.client as _hc
+if not hasattr(_hc, "HTTPSConnection"):
+    _hc.HTTPSConnection = _hc.HTTPConnection
 from datetime import datetime, date
 from fpdf import FPDF
 from nutricion import calcular_bmr

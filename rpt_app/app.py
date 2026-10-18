@@ -9,6 +9,7 @@ from recipe_import import procesar_docx_a_plato, estimar_macros, categorizar, ge
 import data_store as ds
 from nutricion import calcular_bmr, calcular_objetivo_dia, repartir_comidas, calcular_objetivo_macros, repartir_macros_comidas, calcular_objetivo_hidratacion
 import entrenamiento as ent
+import ocr_web
 import busqueda_recetas
 import federacion as fed
 
@@ -1243,7 +1244,7 @@ def _mostrar_menu_confirmado_bloqueado():
             st.rerun()
 
 
-def _mostrar_planificador_borrador():
+async def _mostrar_planificador_borrador():
     """Pantalla completa de generación y edición del menú en curso (borrador). Se muestra solo cuando el atleta actual NO tiene un menú confirmado activo."""
     st.header("Entrenamiento y Planificación")
 
@@ -1306,16 +1307,20 @@ def _mostrar_planificador_borrador():
             if archivo_imagen is not None:
                 identidad_imagen = (archivo_imagen.name, archivo_imagen.size)
                 if st.session_state.get('_entreno_imagen_procesada') != identidad_imagen:
-                    if not ent.ocr_disponible():
+                    if not ocr_web.EN_NAVEGADOR and not ent.ocr_disponible():
                         st.error(
                             "No encuentro Tesseract OCR instalado en este ordenador. Es gratuito, pero hay "
-                            "que instalarlo aparte del programa (no basta con lo que ya trae la app) — mira "
-                            "el manual de instrucciones para ver cómo, según tu sistema operativo."
+                            "que instalarlo aparte del programa — mira el manual de instrucciones."
                         )
                     else:
                         try:
-                            with st.spinner("Leyendo la imagen..."):
-                                intensidades, detalle, avisos_entreno, texto_bruto = ent.leer_entrenamiento_imagen(archivo_imagen)
+                            with st.spinner("Leyendo la imagen... (la primera vez descarga el lector de texto, puede tardar un minuto)"):
+                                if ocr_web.EN_NAVEGADOR:
+                                    _bytes_img = archivo_imagen.getvalue()
+                                    _palabras, _ancho, _alto = await ocr_web.leer_palabras(_bytes_img)
+                                    intensidades, detalle, avisos_entreno, texto_bruto = ent.interpretar_palabras_ocr(_palabras, _ancho, _alto)
+                                else:
+                                    intensidades, detalle, avisos_entreno, texto_bruto = ent.leer_entrenamiento_imagen(archivo_imagen)
                             st.session_state.intensidades_semana = intensidades
                             st.session_state.detalle_intensidades = detalle
                             st.session_state.entreno_nombre_archivo = archivo_imagen.name
@@ -1326,6 +1331,8 @@ def _mostrar_planificador_borrador():
                             st.success("Imagen leída. Revisa con atención cómo se ha clasificado cada día antes de generar el menú — el OCR no es infalible.")
                         except ValueError as e:
                             st.error(str(e))
+                        except Exception as e:
+                            st.error(f"No se ha podido leer la imagen en este navegador. Detalle técnico: {e}")
 
         if st.session_state.get('intensidades_semana'):
             st.caption(f"📄 Usando: **{st.session_state.get('entreno_nombre_archivo', '')}**")
@@ -3114,7 +3121,7 @@ elif st.session_state.seccion_activa == 'menu':
     if st.session_state.estado_menu_actual == 'confirmado':
         _mostrar_menu_confirmado_bloqueado()
     else:
-        _mostrar_planificador_borrador()
+        await _mostrar_planificador_borrador()
 
 # ====================================================================
 # SECCIÓN: ATLETA
