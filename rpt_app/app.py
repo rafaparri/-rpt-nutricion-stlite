@@ -1310,10 +1310,11 @@ async def _mostrar_planificador_borrador():
                     st.session_state.entreno_nombre_archivo = "Marcado a mano"
 
         # ---------- Competición (hora de pesaje y de inicio) ----------
+        st.session_state.setdefault("comp_dia", "Sábado")
         _hay_comp = st.checkbox("🏆 Hay competición esta semana", key="comp_activa")
         if _hay_comp:
             _cc1, _cc2, _cc3 = st.columns(3)
-            _dia_comp = _cc1.selectbox("Día de la competición", DIAS_SEMANA, index=5, key="comp_dia")
+            _dia_comp = _cc1.selectbox("Día de la competición", DIAS_SEMANA, key="comp_dia")
             _t_pes = _cc2.time_input("Hora del pesaje", value=datetime.strptime("08:00", "%H:%M").time(), key="comp_hora_pesaje", step=300)
             _t_ini = _cc3.time_input("Hora de inicio (primer intento)", value=datetime.strptime("10:00", "%H:%M").time(), key="comp_hora_inicio", step=300)
             if st.session_state.get('intensidades_semana'):
@@ -1337,6 +1338,9 @@ async def _mostrar_planificador_borrador():
             for col, dia in zip(cols_dias, DIAS_SEMANA):
                 intensidad_dia = st.session_state.intensidades_semana.get(dia, "Media")
                 emoji = {"Alta": "🔴", "Media": "🟡", "Descanso": "🟢"}.get(intensidad_dia, "🟡")
+                _es_comp = bool(st.session_state.get("comp_activa")) and st.session_state.get("comp_dia") == dia
+                if _es_comp:
+                    emoji = "🏆"
                 col.markdown(f"**{dia[:3]}**")
                 with col.popover(f"{emoji} {intensidad_dia}", use_container_width=True):
                     st.caption(st.session_state.detalle_intensidades.get(dia, ""))
@@ -1351,6 +1355,13 @@ async def _mostrar_planificador_borrador():
                                 st.session_state.intensidades_semana[dia] = opcion
                                 st.session_state.detalle_intensidades[dia] = "Corregido a mano por ti."
                                 st.rerun()
+                    def _marcar_competicion(_d=dia):
+                        st.session_state["comp_activa"] = True
+                        st.session_state["comp_dia"] = _d
+                    st.button(
+                        "🏆 Competición este día", key=f"corr_comp_{dia}", use_container_width=True,
+                        type="primary" if _es_comp else "secondary", on_click=_marcar_competicion,
+                    )
             st.caption("Pulsa sobre la intensidad de cualquier día para ver el detalle o corregirla a mano.")
 
             st.markdown("**📊 Necesidades según este entrenamiento**")
