@@ -25,7 +25,9 @@ async def leer_palabras(imagen_bytes):
     imagen = Image.open(io.BytesIO(imagen_bytes))
     ancho, alto = imagen.size
 
-    modulo = await run_js(f"import('{URL_TESSERACT}')")
+    modulo = await run_js(
+        f"import('{URL_TESSERACT}').then(m => (m.createWorker ? m : (m.default || m)))"
+    )
     trabajador = await modulo.createWorker("spa")
     try:
         blob = js.Blob.new(to_js([to_js(imagen_bytes)]))
