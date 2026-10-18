@@ -20,18 +20,18 @@ LOGO_PATH = os.path.join(BASE_DIR, "logo.png")
 OUTPUT_DIR = os.path.join(BASE_DIR, "informes_generados")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-BRAND_BLUE = "#4FC3F7"
-BRAND_BLUE_DARK = "#F5F7FF"
-BRAND_BLUE_SOFT = "#1B2158"
-BRAND_BLUE_ACCENT = "#22D3EE"
-BG_PAGE = "#0B0E2E"
-BG_CARD_ALT = "#1E2358"
-BORDE_OSCURO = "#2E3470"
-TEXT_MUTED = "#9AA3D4"
+BRAND_BLUE = "#5fe0d5"
+BRAND_BLUE_DARK = "#e8eef4"
+BRAND_BLUE_SOFT = "#161d27"
+BRAND_BLUE_ACCENT = "#34d1c4"
+BG_PAGE = "#0d1117"
+BG_CARD_ALT = "#1b2430"
+BORDE_OSCURO = "#263242"
+TEXT_MUTED = "#8494a6"
 ACCENT_GREEN = "#00E5A0"
 ACCENT_RED = "#FF3B5C"
 ACCENT_YELLOW = "#FFC53D"
-ACCENT_CIAN = "#22D3EE"
+ACCENT_CIAN = "#34d1c4"
 
 # Colores de categoría (coherentes con los del PDF)
 CATEGORIAS = ["Alto en Hidratos", "Alto en Proteína", "Alto en Grasas", "Ligero", "Equilibrado"]
@@ -60,10 +60,15 @@ st.set_page_config(
 # ------------------------------------------------------------------
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:ital,wght@0,500;0,600&display=swap');
+    @font-face {{ font-family:'Archivo'; font-weight:400; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-latin-400-normal.woff2') format('woff2'); }}
+    @font-face {{ font-family:'Archivo'; font-weight:500; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-latin-500-normal.woff2') format('woff2'); }}
+    @font-face {{ font-family:'Archivo'; font-weight:600; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-latin-600-normal.woff2') format('woff2'); }}
+    @font-face {{ font-family:'Archivo'; font-weight:700; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-latin-700-normal.woff2') format('woff2'); }}
+    @font-face {{ font-family:'Archivo'; font-weight:800; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-latin-800-normal.woff2') format('woff2'); }}
+    @font-face {{ font-family:'Archivo Black'; font-weight:400; font-style:normal; font-display:swap; src:url('https://rafaparri.github.io/-rpt-nutricion-stlite/fonts_web/archivo-black-latin-400-normal.woff2') format('woff2'); }}
 
     html, body, [class*="css"] {{
-        font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
         color: {BRAND_BLUE_DARK};
     }}
 
@@ -81,7 +86,7 @@ st.markdown(f"""
     }}
 
     h1, h2, h3, h4 {{
-        font-family: 'Manrope', sans-serif;
+        font-family: 'Archivo', sans-serif;
         font-weight: 800;
         color: {BRAND_BLUE_DARK};
         letter-spacing: -0.02em;
@@ -91,7 +96,7 @@ st.markdown(f"""
     }}
 
     .rpt-header {{
-        background: linear-gradient(135deg, #1B2838 0%, {BG_PAGE} 100%);
+        background: linear-gradient(135deg, #161d27 0%, {BG_PAGE} 100%);
         padding: 26px 32px;
         border-radius: 22px;
         margin-bottom: 22px;
@@ -684,7 +689,7 @@ st.markdown(f"""
 MACRO_RING_COLORES = {
     "proteina": "#FF3B5C",
     "carbos": "#FFC53D",
-    "grasa": "#22D3EE",
+    "grasa": "#34d1c4",
 }
 
 
