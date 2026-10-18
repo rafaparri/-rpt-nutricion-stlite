@@ -11,6 +11,12 @@ No necesitas tocar este archivo para nada del día a día: la app principal
 """
 
 import os
+# --- Compatibilidad navegador (stlite/Pyodide): fpdf2 importa HTTPSHandler,
+# que no existe en ese entorno. Se crea uno vacío; la app no descarga imágenes.
+import urllib.request as _ur
+for _n in ("HTTPSHandler", "HTTPHandler", "ProxyHandler"):
+    if not hasattr(_ur, _n):
+        setattr(_ur, _n, type(_n, (), {"__init__": lambda self, *a, **k: None}))
 from datetime import datetime, date
 from fpdf import FPDF
 from nutricion import calcular_bmr
