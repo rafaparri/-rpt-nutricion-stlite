@@ -9,7 +9,6 @@ from recipe_import import procesar_docx_a_plato, estimar_macros, categorizar, ge
 import data_store as ds
 from nutricion import calcular_bmr, calcular_objetivo_dia, repartir_comidas, calcular_objetivo_macros, repartir_macros_comidas, calcular_objetivo_hidratacion
 import entrenamiento as ent
-import ocr_web
 import busqueda_recetas
 import federacion as fed
 
@@ -1258,7 +1257,7 @@ async def _mostrar_planificador_borrador():
             "lo indiques a mano. Siempre puedes corregir cualquier día abajo si algo no coincide."
         )
         modo_entreno = st.radio(
-            "¿Cómo quieres subirlo?", ["Excel (.xlsx)", "Foto o captura (imagen)"],
+            "¿Cómo quieres subirlo?", ["Marcar a mano", "Excel (.xlsx)"],
             horizontal=True, key="modo_entreno",
         )
 
@@ -1296,46 +1295,22 @@ async def _mostrar_planificador_borrador():
 
         else:
             st.caption(
-                "Gratis y sin conexión (usa Tesseract OCR instalado en tu ordenador). Funciona mejor "
-                "con capturas de pantalla nítidas o fotos rectas y bien iluminadas de texto impreso — "
-                "con fotos borrosas, torcidas o letra manuscrita puede fallar u omitir algún día, así "
-                "que revisa siempre el resultado abajo."
+                "Marca cómo es cada día de tu semana pulsando sobre él. "
+                "🔴 **Alta**: sesión pesada o muy exigente. "
+                "🟡 **Media**: entrenamiento normal. "
+                "🟢 **Descanso**: sin entreno, o solo movilidad y técnica suave."
             )
-            archivo_imagen = st.file_uploader(
-                "Sube una foto o captura (.jpg, .png)", type=['jpg', 'jpeg', 'png'], key="entreno_uploader_imagen"
-            )
-            if archivo_imagen is not None:
-                identidad_imagen = (archivo_imagen.name, archivo_imagen.size)
-                if st.session_state.get('_entreno_imagen_procesada') != identidad_imagen:
-                    if not ocr_web.EN_NAVEGADOR and not ent.ocr_disponible():
-                        st.error(
-                            "No encuentro Tesseract OCR instalado en este ordenador. Es gratuito, pero hay "
-                            "que instalarlo aparte del programa — mira el manual de instrucciones."
-                        )
-                    else:
-                        try:
-                            with st.spinner("Leyendo la imagen... (la primera vez descarga el lector de texto, puede tardar un minuto)"):
-                                if ocr_web.EN_NAVEGADOR:
-                                    _bytes_img = archivo_imagen.getvalue()
-                                    _palabras, _ancho, _alto = await ocr_web.leer_palabras(_bytes_img)
-                                    intensidades, detalle, avisos_entreno, texto_bruto = ent.interpretar_palabras_ocr(_palabras, _ancho, _alto)
-                                else:
-                                    intensidades, detalle, avisos_entreno, texto_bruto = ent.leer_entrenamiento_imagen(archivo_imagen)
-                            st.session_state.intensidades_semana = intensidades
-                            st.session_state.detalle_intensidades = detalle
-                            st.session_state.entreno_nombre_archivo = archivo_imagen.name
-                            st.session_state.entreno_texto_ocr = texto_bruto
-                            st.session_state._entreno_imagen_procesada = identidad_imagen
-                            for aviso in avisos_entreno:
-                                st.warning(aviso)
-                            st.success("Imagen leída. Revisa con atención cómo se ha clasificado cada día antes de generar el menú — el OCR no es infalible.")
-                        except ValueError as e:
-                            st.error(str(e))
-                        except Exception as e:
-                            st.error(f"No se ha podido leer la imagen en este navegador. Detalle técnico: {e}")
+            if not st.session_state.get('intensidades_semana') or st.session_state.get('entreno_nombre_archivo') not in (None, "", "Marcado a mano"):
+                if not st.session_state.get('intensidades_semana'):
+                    st.session_state.intensidades_semana = {
+                        d: ("Alta" if d == "Miércoles" else "Descanso" if d in ("Martes", "Viernes") else "Media")
+                        for d in DIAS_SEMANA
+                    }
+                    st.session_state.detalle_intensidades = {d: "Valor inicial orientativo: cámbialo a tu semana real." for d in DIAS_SEMANA}
+                    st.session_state.entreno_nombre_archivo = "Marcado a mano"
 
         if st.session_state.get('intensidades_semana'):
-            st.caption(f"📄 Usando: **{st.session_state.get('entreno_nombre_archivo', '')}**")
+            st.caption(f"📄 Usando: **{st.session_state.get('entreno_nombre_archivo', '')}**" if st.session_state.get('entreno_nombre_archivo') != "Marcado a mano" else "✋ Semana marcada a mano (valores iniciales orientativos: ajústalos a tu semana real).")
             cols_dias = st.columns(7)
             opciones_intensidad = ["Alta", "Media", "Descanso"]
             for col, dia in zip(cols_dias, DIAS_SEMANA):
