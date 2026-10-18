@@ -7,7 +7,7 @@ from datetime import date, datetime
 from pdf_designs import generar_pdf_recetas, generar_informe_profesional, generar_pdf_lista_compra
 from recipe_import import procesar_docx_a_plato, estimar_macros, categorizar, generar_lista_compra
 import data_store as ds
-from nutricion import calcular_bmr, calcular_objetivo_dia, repartir_comidas, calcular_objetivo_macros, repartir_macros_comidas, calcular_objetivo_hidratacion
+from nutricion import calcular_bmr, calcular_objetivo_dia, repartir_comidas, calcular_objetivo_macros, repartir_macros_comidas, calcular_objetivo_hidratacion, plan_dia_competicion
 import entrenamiento as ent
 import busqueda_recetas
 import federacion as fed
@@ -1308,6 +1308,27 @@ async def _mostrar_planificador_borrador():
                     }
                     st.session_state.detalle_intensidades = {d: "Valor inicial orientativo: cámbialo a tu semana real." for d in DIAS_SEMANA}
                     st.session_state.entreno_nombre_archivo = "Marcado a mano"
+
+        # ---------- Competición (hora de pesaje y de inicio) ----------
+        _hay_comp = st.checkbox("🏆 Hay competición esta semana", key="comp_activa")
+        if _hay_comp:
+            _cc1, _cc2, _cc3 = st.columns(3)
+            _dia_comp = _cc1.selectbox("Día de la competición", DIAS_SEMANA, index=5, key="comp_dia")
+            _t_pes = _cc2.time_input("Hora del pesaje", value=datetime.strptime("08:00", "%H:%M").time(), key="comp_hora_pesaje", step=300)
+            _t_ini = _cc3.time_input("Hora de inicio (primer intento)", value=datetime.strptime("10:00", "%H:%M").time(), key="comp_hora_inicio", step=300)
+            if st.session_state.get('intensidades_semana'):
+                st.session_state.intensidades_semana[_dia_comp] = "Alta"
+                st.session_state.detalle_intensidades[_dia_comp] = "🏆 Día de competición (se fija como Alta)."
+            _min_pes = _t_pes.hour * 60 + _t_pes.minute
+            _min_ini = _t_ini.hour * 60 + _t_ini.minute
+            _aviso_comp, _pasos_comp = plan_dia_competicion(st.session_state.perfil.get("peso"), _min_pes, _min_ini)
+            if _aviso_comp:
+                st.warning(_aviso_comp)
+            if _pasos_comp:
+                st.markdown(f"### 🏆 Plan del {_dia_comp}: comidas según tus horas")
+                for _p in _pasos_comp:
+                    st.markdown(f"**{_p['hora']} · {_p['titulo']}**  \n{_p['detalle']}")
+                st.caption("Pautas generales de nutrición deportiva calculadas con tu peso. Prueba siempre en entrenamiento lo que vayas a tomar el día de competir.")
 
         if st.session_state.get('intensidades_semana'):
             st.caption(f"📄 Usando: **{st.session_state.get('entreno_nombre_archivo', '')}**" if st.session_state.get('entreno_nombre_archivo') != "Marcado a mano" else "✋ Semana marcada a mano (valores iniciales orientativos: ajústalos a tu semana real).")
