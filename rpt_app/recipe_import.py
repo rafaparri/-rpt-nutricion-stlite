@@ -57,6 +57,8 @@ FOOD_DB = {
     "calamar":                (92, 15.0, 3.1, 1.4, 200),
     "carne de puchero":       (250, 26.0, 0.0, 17.0, 200),
     "ternera":                (250, 26.0, 0.0, 17.0, 200),
+    "carne picada":           (170, 20.0, 0.0, 10.0, 150),
+    "maiz":                   (86, 3.2, 19.0, 1.2, 100),
     "pechuga de pollo":       (165, 31.0, 0.0, 3.6, 150),
     "pollo":                  (200, 27.0, 0.0, 10.0, 150),
     "sardina":                (210, 20.0, 0.0, 14.0, 120),
@@ -121,6 +123,7 @@ FOOD_DB = {
 # Palabras que no aportan calorías relevantes -> se ignoran en el cálculo
 INGREDIENTES_IGNORAR = [
     "sal", "pimienta", "especias", "especia", "agua", "hielo", "laurel",
+    "guindilla", "oregano", "comino", "perejil", "cilantro",
     "perejil", "organo", "pimenton", "colorante", "opcional", "opcionales",
     # inglés
     "salt", "water", "ice", "optional", "spices", "seasoning",
@@ -136,6 +139,7 @@ UNIDADES_GRAMOS = {
     "taza": 200, "tazas": 200,
     "cucharada": 13, "cucharadas": 13,
     "cucharadita": 5, "cucharaditas": 5,
+    "sopera": 15, "soperas": 15, "postre": 8, "puñado": 30, "punado": 30,
     "diente": 5, "dientes": 5,
     "dedo": 30, "dedos": 30,
     "lata": 120, "latas": 120,
@@ -390,7 +394,24 @@ def parse_ingrediente(linea):
         # lo que se interpretó como "unidad" en realidad es parte del nombre
         resto = (unidad + " " + resto).strip()
         unidad = None
+    else:
+        # 'cucharadas soperas de maíz', 'puñado generoso de carne'...
+        resto = re.sub(r"^(?:soperas?|generos[oa]s?|colmad[oa]s?|rasas?|grandes?|peque[ñn][oa]s?)\s+(?:de\s+)?", "", resto.strip(), flags=re.I)
     return cantidad, unidad, resto.strip()
+
+
+def _gramos_indicados(linea):
+    """Si la línea indica un peso ('aprox. 120-150 g', '200 g'), lo devuelve
+    (media del rango); si no, None. Sirve para no perder el peso de un
+    ingrediente que no está en la tabla nutricional."""
+    m = re.search(r"(\d+[.,]?\d*)\s*(?:-|–|a)\s*(\d+[.,]?\d*)\s*(?:g|gr|grs|gramos)\b", linea, re.I)
+    if m:
+        a, b = (float(x.replace(",", ".")) for x in m.groups())
+        return (a + b) / 2
+    m = re.search(r"(\d+[.,]?\d*)\s*(?:g|gr|grs|gramos)\b", linea, re.I)
+    if m:
+        return float(m.group(1).replace(",", "."))
+    return None
 
 
 def estimar_macros(lineas_ingredientes, raciones):
@@ -415,6 +436,9 @@ def estimar_macros(lineas_ingredientes, raciones):
         clave = _buscar_ingrediente(nombre_norm)
         if clave is None:
             no_reconocidos.append(nombre.strip().capitalize())
+            g_ind = _gramos_indicados(linea)
+            if g_ind:
+                total_gramos += g_ind
             continue
 
         kcal100, prot100, carb100, grasa100, peso_unidad = FOOD_DB[clave]
@@ -430,6 +454,13 @@ def estimar_macros(lineas_ingredientes, raciones):
                 gramos *= 1.3
             elif "pequen" in nombre_norm:
                 gramos *= 0.7
+
+        # si la línea trae un peso aproximado explícito ('aprox. 120-150 g'),
+        # se usa en vez de la estimación por unidad ('un puñado')
+        if re.search(r"aprox", linea, re.I):
+            g_ind = _gramos_indicados(linea)
+            if g_ind:
+                gramos = g_ind
 
         factor = gramos / 100.0
         total_kcal += kcal100 * factor
