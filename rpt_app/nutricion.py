@@ -188,39 +188,50 @@ def plan_dia_competicion(peso_kg, hora_pesaje_min, hora_inicio_min):
     """Devuelve (aviso, pasos). Las horas se dan en minutos desde las 00:00.
     pasos = lista de dicts {hora, titulo, detalle}. Pautas generales de
     nutrición deportiva para halterofilia (categoría por peso, pesaje previo);
-    no sustituyen a un profesional si hay que ajustar peso."""
+    no sustituyen a un profesional si hay que ajustar peso.
+    Si no se conoce el peso, las cantidades se dan en gramos por kg."""
     try:
-        p = float(peso_kg)
+        peso = float(peso_kg)
     except (TypeError, ValueError):
-        p = 80.0
+        peso = 0.0
+    sin_peso = peso <= 0
+
+    def q(por_kg, unidad="g"):
+        """Cantidad para el peso del atleta, o 'x g/kg' si no hay peso."""
+        if sin_peso:
+            return f"{por_kg:g} {unidad}/kg"
+        return f"{round(por_kg * peso)} {unidad}"
+
+    def rango(lo, hi, unidad="g"):
+        if sin_peso:
+            return f"{lo:g}–{hi:g} {unidad}/kg"
+        return f"{round(lo * peso)}–{round(hi * peso)} {unidad}"
+
     W, T = int(hora_pesaje_min), int(hora_inicio_min)
     hueco = T - W
     aviso = None
     if hueco <= 0:
         return ("La hora de pesaje debe ser anterior a la hora de inicio de la competición.", [])
+    if sin_peso:
+        aviso = "Aún no hay peso del atleta: las cantidades salen por kg de peso corporal. Selecciona o crea el atleta con su peso para ver los gramos exactos."
     if hueco < 60:
-        aviso = (f"Solo hay {hueco} min entre pesaje y competición: se prioriza líquido con sodio e hidratos "
+        extra = (f"Solo hay {hueco} min entre pesaje y competición: se prioriza líquido con sodio e hidratos "
                  "muy fáciles de digerir, sin comida sólida.")
-
-    c1 = round(p * 1.0)          # 1 g/kg
-    c_lo, c_hi = round(p * 0.3), round(p * 0.5)
-    c_post_lo, c_post_hi = round(p * 1.0), round(p * 1.2)
-    prot_post_lo, prot_post_hi = round(p * 0.3), round(p * 0.4)
-    cafeina = round(p * 3)
+        aviso = f"{aviso}\n\n{extra}" if aviso else extra
 
     pasos = []
     pasos.append({
         "hora": "Día anterior",
         "titulo": "Carga de hidratos y digestión ligera",
-        "detalle": (f"Hidratos altos (unos {round(p*6)}–{round(p*8)} g en el día), grasa y fibra bajas "
+        "detalle": (f"Hidratos altos (unos {rango(5, 7)} en el día), grasa y fibra bajas "
                     "desde la tarde, nada nuevo. No recortes sal ni agua el día anterior salvo indicación "
-                    f"de tu entrenador. Líquidos: unos {round(p*35)}–{round(p*40)} ml repartidos. Cena temprana "
+                    f"de tu entrenador. Líquidos: unos {rango(35, 40, 'ml')} repartidos. Cena temprana "
                     "y fácil de digerir (arroz, pasta, patata, pollo o pescado a la plancha)."),
     })
     pasos.append({
         "hora": _hm(W - 150),
         "titulo": "Al levantarte (antes del pesaje)",
-        "detalle": (f"Si estás holgado de peso: desayuno ligero de unos {round(p*0.5)}–{c1} g de hidratos, "
+        "detalle": (f"Si estás holgado de peso: desayuno ligero de unos {rango(0.5, 1)} de hidratos, "
                     "bajo en fibra y grasa (tostadas con mermelada, arroz, plátano). "
                     "Si vas justo de peso: solo agua o bebida con electrolitos y espera al pesaje."),
     })
@@ -233,22 +244,22 @@ def plan_dia_competicion(peso_kg, hora_pesaje_min, hora_inicio_min):
         pasos.append({
             "hora": _hm(W + 10),
             "titulo": "Tras el pesaje: rehidratar y comer",
-            "detalle": (f"Bebe 500–750 ml con sodio en la primera hora y toma unos {c1} g de hidratos fáciles de "
-                        f"digerir (arroz, pan blanco, plátano, bebida deportiva) con 20–30 g de proteína ligera. "
+            "detalle": (f"Bebe 500–750 ml con sodio en la primera hora y toma unos {q(1)} de hidratos fáciles de "
+                        "digerir (arroz, pan blanco, plátano, bebida deportiva) con 20–30 g de proteína ligera. "
                         "Poca grasa y poca fibra."),
         })
     else:
         pasos.append({
             "hora": _hm(W + 5),
             "titulo": "Tras el pesaje: líquido e hidratos rápidos",
-            "detalle": (f"Bebida con sodio e hidratos líquidos (unos {c_lo}–{c_hi} g) en sorbos; sin sólidos."),
+            "detalle": f"Bebida con sodio e hidratos líquidos (unos {rango(0.3, 0.5)}) en sorbos; sin sólidos.",
         })
     if hueco >= 90:
         pasos.append({
             "hora": _hm(T - 60),
             "titulo": "1 hora antes de empezar",
-            "detalle": (f"Hidratos simples: {c_lo}–{c_hi} g (gel, fruta madura, bebida deportiva). "
-                        f"Si ya la usas habitualmente, cafeína unos 3 mg/kg (≈ {cafeina} mg); si no, no la pruebes hoy."),
+            "detalle": (f"Hidratos simples: {rango(0.3, 0.5)} (gel, fruta madura, bebida deportiva). "
+                        f"Si ya la usas habitualmente, cafeína unos 3 mg/kg (≈ {q(3, 'mg')}); si no, no la pruebes hoy."),
         })
     pasos.append({
         "hora": _hm(T - 15),
@@ -265,7 +276,7 @@ def plan_dia_competicion(peso_kg, hora_pesaje_min, hora_inicio_min):
     pasos.append({
         "hora": "Al terminar",
         "titulo": "Recuperación",
-        "detalle": (f"En las 2 primeras horas: {c_post_lo}–{c_post_hi} g de hidratos y {prot_post_lo}–{prot_post_hi} g "
+        "detalle": (f"En las 2 primeras horas: {rango(1, 1.2)} de hidratos y {rango(0.3, 0.4)} "
                     "de proteína, más líquidos con sal. Después, comida normal completa."),
     })
     return aviso, pasos
