@@ -2712,9 +2712,12 @@ def _renderizar_formulario_perfil():
             if not st.session_state.perfil['nombre'].strip():
                 st.error("El atleta necesita un nombre para poder guardarlo.")
             else:
-                ds.guardar_atleta(st.session_state.perfil)
-                st.session_state.atleta_seleccionado = st.session_state.perfil['nombre']
-                st.success(f"Perfil de {st.session_state.perfil['nombre']} guardado. Podrás recuperarlo desde el selector de arriba.")
+                try:
+                    ds.guardar_atleta(st.session_state.perfil)
+                    st.session_state.atleta_seleccionado = st.session_state.perfil['nombre']
+                    st.success(f"Perfil de {st.session_state.perfil['nombre']} guardado. Podrás recuperarlo desde el selector de arriba.")
+                except Exception as e:
+                    st.error(f"No se ha podido guardar el atleta. Detalle técnico: {type(e).__name__}: {e}  (carpeta de datos: {ds.DATA_DIR})")
 
 # ------------------------------------------------------------------
 # NAVEGACIÓN POR SECCIONES (barra fija inferior, solo iconos)

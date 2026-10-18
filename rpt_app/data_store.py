@@ -35,7 +35,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), "RPT_Datos")
 DATA_DIR_ANTIGUA = os.path.join(BASE_DIR, "data")
 
-os.makedirs(DATA_DIR, exist_ok=True)
+def _carpeta_escribible(ruta):
+    try:
+        os.makedirs(ruta, exist_ok=True)
+        prueba = os.path.join(ruta, ".escritura_ok")
+        with open(prueba, "w", encoding="utf-8") as f:
+            f.write("ok")
+        os.remove(prueba)
+        return True
+    except Exception:
+        return False
+
+
+# Red de seguridad (p. ej. en el navegador): si la carpeta preferida no se
+# puede escribir, se usa una carpeta temporal para que la app no falle.
+if not _carpeta_escribible(DATA_DIR):
+    for _alt in ("/tmp/RPT_Datos", os.path.join(os.path.expanduser("~"), "RPT_Datos")):
+        if _carpeta_escribible(_alt):
+            DATA_DIR = _alt
+            break
 
 
 def _migrar_datos_antiguos():
